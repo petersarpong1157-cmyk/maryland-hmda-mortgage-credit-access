@@ -2,7 +2,13 @@
 
 library(readr)
 
-setwd("C:/Users/peter/Desktop/Research Publications")
+loan_purposes_1_state_MD <- read_csv(
+  "C:/Users/peter/OneDrive/Desktop/Research Publications/loan_purposes_1_state_MD.csv"
+)
+
+View(loan_purposes_1_state_MD)
+
+setwd("C:/Users/peter/OneDrive/Desktop/Research Publications")
 
 hmda_raw <- read_csv(
   "loan_purposes_1_state_MD.csv",
@@ -12,6 +18,7 @@ hmda_raw <- read_csv(
 
 dim(hmda_raw)
 problems(hmda_raw)
+
 
 # STEP 2: VERIFY VARIABLES FOR PAPER 2
 
@@ -1042,6 +1049,15 @@ roc.test(
   method = "delong"
 )
 
+
+# Create numeric tract variables in the full decision sample
+decision_sample$tract_minority_pct <- suppressWarnings(
+  as.numeric(decision_sample$tract_minority_population_percent)
+)
+
+decision_sample$tract_income_pct <- suppressWarnings(
+  as.numeric(decision_sample$tract_to_msa_income_percentage)
+)
 
 #8p Refit reduced model on the full decision sample
 reduced_full <- glm(
@@ -2113,3 +2129,1344 @@ for (pkg in packages) {
   }
 }
 
+
+
+
+vars <- c(
+  "Denied",
+  "tract_minority_pct",
+  "tract_income_pct",
+  "income_num",
+  "loan_amount_num",
+  "dti_num",
+  "ltv_num",
+  "loan_term_num"
+)
+
+# Number missing
+colSums(is.na(decision_sample[vars]))
+
+# Percent missing
+round(
+  colMeans(is.na(decision_sample[vars])) * 100,
+  2
+)
+
+# Number of complete cases
+sum(complete.cases(decision_sample[vars]))
+
+# Number excluded because of missing values
+sum(!complete.cases(decision_sample[vars]))
+
+
+missing_audit <- aggregate(
+  cbind(
+    income_missing = is.na(income_num),
+    dti_missing = is.na(dti_num),
+    ltv_missing = is.na(ltv_num),
+    loan_term_missing = is.na(loan_term_num)
+  ) ~ Denied,
+  data = decision_sample,
+  FUN = mean
+)
+
+round(missing_audit, 4)
+
+
+missing_pattern <- table(
+  Income = is.na(decision_sample$income_num),
+  DTI = is.na(decision_sample$dti_num),
+  LTV = is.na(decision_sample$ltv_num),
+  Loan_Term = is.na(decision_sample$loan_term_num)
+)
+
+missing_pattern
+
+
+summary(
+  decision_sample[c(
+    "income_num",
+    "loan_amount_num",
+    "dti_num",
+    "ltv_num",
+    "loan_term_num",
+    "tract_minority_pct",
+    "tract_income_pct"
+  )]
+)
+
+install.packages("mice")
+library(mice)
+
+
+# STEP 12A: PREPARE DATA FOR MULTIPLE IMPUTATION
+
+mi_data <- decision_sample[, c(
+  "Denied",
+  "tract_minority_pct",
+  "tract_income_pct",
+  "income_num",
+  "loan_amount_num",
+  "dti_num",
+  "ltv_num",
+  "loan_term_num"
+)]
+
+# Verify dimensions
+dim(mi_data)
+
+# Verify missing values
+colSums(is.na(mi_data))
+
+dim(mi_data)
+colSums(is.na(mi_data))
+
+# STEP 12B: INSPECT DEFAULT IMPUTATION METHODS
+
+mi_setup <- mice(
+  mi_data,
+  maxit = 0,
+  printFlag = FALSE
+)
+
+mi_setup$method
+
+
+# STEP 12C: INSPECT IMPUTATION PREDICTOR MATRIX
+
+mi_setup$predictorMatrix
+
+
+# STEP 12D: RUN MULTIPLE IMPUTATION
+
+set.seed(20260907)
+
+mi_fit <- mice(
+  mi_data,
+  m = 20,
+  maxit = 10,
+  method = mi_setup$method,
+  predictorMatrix = mi_setup$predictorMatrix,
+  printFlag = TRUE,
+  seed = 20260907
+)
+
+# STEP 12E: CHECK FOR IMPUTATION WARNINGS / LOGGED EVENTS
+
+mi_fit$loggedEvents
+
+library(splines)
+
+mi_spline <- with(
+  mi_fit,
+  glm(
+    Denied ~
+      tract_minority_pct +
+      tract_income_pct +
+      income_num +
+      ns(loan_amount_num, df = 3) +
+      ns(dti_num, df = 3) +
+      ns(ltv_num, df = 3) +
+      ns(loan_term_num, df = 3),
+    family = binomial(link = "logit")
+  )
+)
+
+mi_spline_pool <- pool(mi_spline)
+
+summary(mi_spline_pool, conf.int = TRUE)
+
+
+warnings()
+
+
+
+
+# STEP 12G: DIAGNOSE EXTREME FITTED PROBABILITIES
+
+mi_extreme_check <- t(sapply(
+  mi_spline$analyses,
+  function(model) c(
+    Min_Probability = min(fitted(model)),
+    Max_Probability = max(fitted(model)),
+    Below_1e8 = sum(fitted(model) < 1e-8),
+    Above_1_minus_1e8 = sum(fitted(model) > 1 - 1e-8)
+  )
+))
+
+mi_extreme_check
+
+# STEP 12H: CHECK TRACT-MINORITY COEFFICIENT ACROSS IMPUTATIONS
+
+mi_minority_betas <- sapply(
+  mi_spline$analyses,
+  function(model) coef(model)["tract_minority_pct"]
+)
+
+mi_minority_betas
+
+summary(mi_minority_betas)
+
+sd(mi_minority_betas)
+
+# STEP 12I: POOLED MI 10-PP TRACT-MINORITY EFFECT
+
+mi_beta <- 0.003511227
+mi_se   <- 0.0004807374
+
+c(
+  OR_10pp = exp(10 * mi_beta),
+  CI_low  = exp(10 * (mi_beta - 1.96 * mi_se)),
+  CI_high = exp(10 * (mi_beta + 1.96 * mi_se))
+)
+
+# STEP 13A: IDENTIFY COUNTY VARIABLE
+
+grep(
+  "county",
+  names(decision_sample),
+  value = TRUE,
+  ignore.case = TRUE
+)
+
+
+# STEP 13B: CHECK COUNTY COVERAGE
+
+cat("Missing county codes:",
+    sum(is.na(decision_sample$county_code) |
+          decision_sample$county_code == ""),
+    "\n")
+
+cat("Unique non-missing county codes:",
+    length(unique(
+      decision_sample$county_code[
+        !is.na(decision_sample$county_code) &
+          decision_sample$county_code != ""
+      ]
+    )),
+    "\n\n")
+
+table(
+  decision_sample$county_code,
+  useNA = "ifany"
+)
+
+
+# STEP 13C: CHECK COUNTY MISSINGNESS BY DENIAL STATUS
+
+county_missing <- is.na(decision_sample$county_code) |
+  decision_sample$county_code == ""
+
+table(
+  Denied = decision_sample$Denied,
+  County_Missing = county_missing
+)
+
+prop.table(
+  table(
+    Denied = decision_sample$Denied,
+    County_Missing = county_missing
+  ),
+  margin = 1
+)
+
+
+# STEP 13D: CREATE COUNTY-FE COMPLETE-CASE SAMPLE
+
+county_fe_sample <- decision_sample[
+  !is.na(decision_sample$county_code) &
+    decision_sample$county_code != "" &
+    complete.cases(
+      decision_sample[, c(
+        "Denied",
+        "tract_minority_pct",
+        "tract_income_pct",
+        "income_num",
+        "loan_amount_num",
+        "dti_num",
+        "ltv_num",
+        "loan_term_num"
+      )]
+    ),
+]
+
+county_fe_sample$county_factor <- factor(county_fe_sample$county_code)
+
+cat("County-FE sample N:", nrow(county_fe_sample), "\n")
+cat("Number of counties:", nlevels(county_fe_sample$county_factor), "\n")
+cat("Denied:", sum(county_fe_sample$Denied == 1), "\n")
+cat("Non-denied:", sum(county_fe_sample$Denied == 0), "\n")
+cat("Denial rate:",
+    mean(county_fe_sample$Denied == 1) * 100,
+    "%\n")
+
+# STEP 13E: FIT SPLINE MODEL WITH COUNTY FIXED EFFECTS
+
+library(splines)
+
+model_county_fe <- glm(
+  Denied ~
+    tract_minority_pct +
+    tract_income_pct +
+    income_num +
+    ns(loan_amount_num, df = 3) +
+    ns(dti_num, df = 3) +
+    ns(ltv_num, df = 3) +
+    ns(loan_term_num, df = 3) +
+    county_factor,
+  data = county_fe_sample,
+  family = binomial(link = "logit")
+)
+
+# Focal tract-minority result
+summary(model_county_fe)$coefficients["tract_minority_pct", ]
+
+# 10-percentage-point odds ratio and 95% CI
+county_beta <- coef(model_county_fe)["tract_minority_pct"]
+county_se <- summary(model_county_fe)$coefficients[
+  "tract_minority_pct", "Std. Error"
+]
+
+c(
+  OR_10pp = exp(10 * county_beta),
+  CI_low  = exp(10 * (county_beta - 1.96 * county_se)),
+  CI_high = exp(10 * (county_beta + 1.96 * county_se))
+)
+
+# Model fit
+AIC(model_county_fe)
+
+
+# STEP 14A: IDENTIFY APPLICANT RACE AND ETHNICITY VARIABLES
+
+grep(
+  "applicant.*race|applicant.*ethnicity",
+  names(decision_sample),
+  value = TRUE,
+  ignore.case = TRUE
+)
+
+
+# STEP 14B: INSPECT PRIMARY APPLICANT RACE/ETHNICITY CODES
+
+cat("Applicant race-1:\n")
+print(
+  table(
+    decision_sample[["applicant_race-1"]],
+    useNA = "ifany"
+  )
+)
+
+cat("\nApplicant ethnicity-1:\n")
+print(
+  table(
+    decision_sample[["applicant_ethnicity-1"]],
+    useNA = "ifany"
+  )
+)
+
+
+
+# STEP 14C: CHECK USE OF ADDITIONAL APPLICANT RACE/ETHNICITY FIELDS
+
+race_vars <- paste0("applicant_race-", 1:5)
+eth_vars  <- paste0("applicant_ethnicity-", 1:5)
+
+cat("Non-missing counts for applicant race fields:\n")
+print(
+  sapply(
+    decision_sample[race_vars],
+    function(x) sum(!is.na(x) & x != "")
+  )
+)
+
+cat("\nNon-missing counts for applicant ethnicity fields:\n")
+print(
+  sapply(
+    decision_sample[eth_vars],
+    function(x) sum(!is.na(x) & x != "")
+  )
+)
+
+cat("\nRace-2 values:\n")
+print(table(decision_sample[["applicant_race-2"]], useNA = "ifany"))
+
+cat("\nEthnicity-2 values:\n")
+print(table(decision_sample[["applicant_ethnicity-2"]], useNA = "ifany"))
+
+
+# STEP 14D: LIST ALL RACE/ETHNICITY CODES USED
+
+all_race_codes <- sort(unique(unlist(
+  decision_sample[race_vars],
+  use.names = FALSE
+)))
+all_race_codes <- all_race_codes[
+  !is.na(all_race_codes) & all_race_codes != ""
+]
+
+all_eth_codes <- sort(unique(unlist(
+  decision_sample[eth_vars],
+  use.names = FALSE
+)))
+all_eth_codes <- all_eth_codes[
+  !is.na(all_eth_codes) & all_eth_codes != ""
+]
+
+cat("All applicant race codes:\n")
+print(all_race_codes)
+
+cat("\nAll applicant ethnicity codes:\n")
+print(all_eth_codes)
+
+
+# STEP 14E: COUNT SUBSTANTIVE RACE SELECTIONS PER APPLICANT
+
+race_matrix <- as.data.frame(
+  decision_sample[race_vars],
+  stringsAsFactors = FALSE
+)
+
+# Substantive HMDA race codes:
+# AIAN = 1
+# Asian = 2, 21-27
+# Black = 3
+# NHPI = 4, 41-44
+# White = 5
+substantive_race_codes <- c(
+  "1",
+  "2", "21", "22", "23", "24", "25", "26", "27",
+  "3",
+  "4", "41", "42", "43", "44",
+  "5"
+)
+
+n_substantive_races <- apply(
+  race_matrix,
+  1,
+  function(x) {
+    x <- unique(x[!is.na(x) & x != ""])
+    sum(x %in% substantive_race_codes)
+  }
+)
+
+table(n_substantive_races)
+
+cat(
+  "\nApplicants with 2+ substantive race codes:",
+  sum(n_substantive_races >= 2),
+  "\n"
+)
+
+
+
+# STEP 14F: CLASSIFY HISPANIC/LATINO ETHNICITY ACROSS ALL FIELDS
+
+eth_matrix <- as.data.frame(
+  decision_sample[eth_vars],
+  stringsAsFactors = FALSE
+)
+
+hispanic_codes <- c("1", "11", "12", "13", "14")
+
+applicant_hispanic <- apply(
+  eth_matrix,
+  1,
+  function(x) {
+    x <- x[!is.na(x) & x != ""]
+    
+    if (any(x %in% hispanic_codes)) {
+      "Hispanic or Latino"
+    } else if (any(x == "2")) {
+      "Not Hispanic or Latino"
+    } else {
+      "Ethnicity not available"
+    }
+  }
+)
+
+table(applicant_hispanic)
+
+cat(
+  "\nTotal classified:",
+  length(applicant_hispanic),
+  "\n"
+)
+
+
+# STEP 14G: CREATE COMBINED APPLICANT RACE/ETHNICITY VARIABLE
+
+applicant_race_ethnicity <- character(nrow(decision_sample))
+
+for (i in seq_len(nrow(decision_sample))) {
+  
+  # Hispanic/Latino takes precedence
+  if (applicant_hispanic[i] == "Hispanic or Latino") {
+    applicant_race_ethnicity[i] <- "Hispanic or Latino"
+    next
+  }
+  
+  # If ethnicity is unavailable, retain that uncertainty
+  if (applicant_hispanic[i] == "Ethnicity not available") {
+    applicant_race_ethnicity[i] <- "Race/ethnicity not available"
+    next
+  }
+  
+  # Race codes reported by this applicant
+  x <- as.character(unlist(race_matrix[i, ]))
+  x <- unique(x[!is.na(x) & x != ""])
+  x <- x[x %in% substantive_race_codes]
+  
+  if (length(x) == 0) {
+    applicant_race_ethnicity[i] <- "Race/ethnicity not available"
+    
+  } else if (length(x) >= 2) {
+    applicant_race_ethnicity[i] <- "Multiracial"
+    
+  } else if (x %in% "1") {
+    applicant_race_ethnicity[i] <- "AIAN"
+    
+  } else if (x %in% c("2", "21", "22", "23", "24", "25", "26", "27")) {
+    applicant_race_ethnicity[i] <- "Asian"
+    
+  } else if (x %in% "3") {
+    applicant_race_ethnicity[i] <- "Black"
+    
+  } else if (x %in% c("4", "41", "42", "43", "44")) {
+    applicant_race_ethnicity[i] <- "NHPI"
+    
+  } else if (x %in% "5") {
+    applicant_race_ethnicity[i] <- "White"
+  }
+}
+
+decision_sample$applicant_race_ethnicity <- factor(
+  applicant_race_ethnicity
+)
+
+table(
+  decision_sample$applicant_race_ethnicity,
+  useNA = "ifany"
+)
+
+cat(
+  "\nTotal:",
+  sum(table(decision_sample$applicant_race_ethnicity, useNA = "ifany")),
+  "\n"
+)
+
+
+# STEP 14H: APPLICANT RACE/ETHNICITY SENSITIVITY MODEL
+
+race_sens_sample <- decision_sample[
+  complete.cases(
+    decision_sample[, c(
+      "Denied",
+      "tract_minority_pct",
+      "tract_income_pct",
+      "income_num",
+      "loan_amount_num",
+      "dti_num",
+      "ltv_num",
+      "loan_term_num",
+      "applicant_race_ethnicity"
+    )]
+  ),
+]
+
+race_sens_sample$applicant_race_ethnicity <- relevel(
+  factor(race_sens_sample$applicant_race_ethnicity),
+  ref = "White"
+)
+
+model_race_sens <- glm(
+  Denied ~
+    tract_minority_pct +
+    tract_income_pct +
+    income_num +
+    ns(loan_amount_num, df = 3) +
+    ns(dti_num, df = 3) +
+    ns(ltv_num, df = 3) +
+    ns(loan_term_num, df = 3) +
+    applicant_race_ethnicity,
+  data = race_sens_sample,
+  family = binomial(link = "logit")
+)
+
+cat("N used:", nobs(model_race_sens), "\n\n")
+
+# Focal tract-minority coefficient
+print(
+  summary(model_race_sens)$coefficients[
+    "tract_minority_pct",
+  ]
+)
+
+# 10-percentage-point OR and 95% CI
+race_beta <- coef(model_race_sens)["tract_minority_pct"]
+
+race_se <- summary(model_race_sens)$coefficients[
+  "tract_minority_pct",
+  "Std. Error"
+]
+
+print(
+  c(
+    OR_10pp = exp(10 * race_beta),
+    CI_low  = exp(10 * (race_beta - 1.96 * race_se)),
+    CI_high = exp(10 * (race_beta + 1.96 * race_se))
+  )
+)
+
+cat("\nAIC:", AIC(model_race_sens), "\n")
+
+
+# STEP 15A: LIST COUNTY CODES IN THE DECISION SAMPLE
+
+county_codes <- sort(unique(
+  decision_sample$county_code[
+    !is.na(decision_sample$county_code) &
+      decision_sample$county_code != ""
+  ]
+))
+
+print(county_codes)
+cat("\nNumber of county codes:", length(county_codes), "\n")
+
+
+
+# STEP 15B: COUNTY SAMPLE SIZE AND DENIAL COUNTS
+
+county_summary <- aggregate(
+  Denied ~ county_code,
+  data = decision_sample[
+    !is.na(decision_sample$county_code) &
+      decision_sample$county_code != "",
+  ],
+  FUN = function(x) c(
+    N = length(x),
+    Denied = sum(x == 1),
+    Denial_Rate = mean(x == 1) * 100
+  )
+)
+
+county_summary <- data.frame(
+  county_code = county_summary$county_code,
+  N = county_summary$Denied[, "N"],
+  Denied = county_summary$Denied[, "Denied"],
+  Denial_Rate = county_summary$Denied[, "Denial_Rate"]
+)
+
+county_summary <- county_summary[
+  order(county_summary$N, decreasing = TRUE),
+]
+
+print(county_summary, row.names = FALSE)
+
+cat("\nSmallest county N:", min(county_summary$N), "\n")
+cat("Smallest denied count:", min(county_summary$Denied), "\n")
+
+
+
+# STEP 15C: MAP COUNTY FIPS CODES TO COUNTY NAMES
+
+md_county_lookup <- data.frame(
+  county_code = c(
+    "24001","24003","24005","24009","24011","24013",
+    "24015","24017","24019","24021","24023","24025",
+    "24027","24029","24031","24033","24035","24037",
+    "24039","24041","24043","24045","24047","24510"
+  ),
+  county_name = c(
+    "Allegany",
+    "Anne Arundel",
+    "Baltimore County",
+    "Calvert",
+    "Caroline",
+    "Carroll",
+    "Cecil",
+    "Charles",
+    "Dorchester",
+    "Frederick",
+    "Garrett",
+    "Harford",
+    "Howard",
+    "Kent",
+    "Montgomery",
+    "Prince George's",
+    "Queen Anne's",
+    "St. Mary's",
+    "Somerset",
+    "Talbot",
+    "Washington",
+    "Wicomico",
+    "Worcester",
+    "Baltimore City"
+  ),
+  stringsAsFactors = FALSE
+)
+
+# Verify exact agreement with counties in your data
+cat(
+  "Codes in data but not lookup:",
+  setdiff(county_codes, md_county_lookup$county_code),
+  "\n"
+)
+
+cat(
+  "Codes in lookup but not data:",
+  setdiff(md_county_lookup$county_code, county_codes),
+  "\n\n"
+)
+
+print(md_county_lookup, row.names = FALSE)
+
+
+
+# STEP 15D: CREATE AND VERIFY REGIONAL GROUPS
+
+washington_area <- c(
+  "24031", # Montgomery
+  "24033", # Prince George's
+  "24021", # Frederick
+  "24017", # Charles
+  "24009", # Calvert
+  "24037"  # St. Mary's
+)
+
+baltimore_area <- c(
+  "24510", # Baltimore City
+  "24005", # Baltimore County
+  "24003", # Anne Arundel
+  "24025", # Harford
+  "24027", # Howard
+  "24013"  # Carroll
+)
+
+decision_sample$region <- ifelse(
+  decision_sample$county_code %in% washington_area,
+  "Washington area",
+  ifelse(
+    decision_sample$county_code %in% baltimore_area,
+    "Baltimore area",
+    ifelse(
+      !is.na(decision_sample$county_code) &
+        decision_sample$county_code != "",
+      "Other Maryland",
+      NA
+    )
+  )
+)
+
+decision_sample$region <- factor(
+  decision_sample$region,
+  levels = c(
+    "Washington area",
+    "Baltimore area",
+    "Other Maryland"
+  )
+)
+
+# Verify every observed county is assigned exactly once
+cat(
+  "Observed county codes without region:",
+  setdiff(
+    county_codes,
+    c(washington_area, baltimore_area)
+  )[!setdiff(
+    county_codes,
+    c(washington_area, baltimore_area)
+  ) %in%
+    decision_sample$county_code[
+      decision_sample$region == "Other Maryland"
+    ]],
+  "\n\n"
+)
+
+# Show which counties belong to each region
+region_county_check <- merge(
+  unique(
+    decision_sample[
+      !is.na(decision_sample$region),
+      c("county_code", "region")
+    ]
+  ),
+  md_county_lookup,
+  by = "county_code"
+)
+
+print(
+  region_county_check[
+    order(region_county_check$region,
+          region_county_check$county_name),
+  ],
+  row.names = FALSE
+)
+
+# Region sample size and denial rate
+cat("\nRegional counts and denial rates:\n")
+
+region_summary <- aggregate(
+  Denied ~ region,
+  data = decision_sample,
+  FUN = function(x) c(
+    N = length(x),
+    Denied = sum(x == 1),
+    Denial_Rate = mean(x == 1) * 100
+  )
+)
+
+print(region_summary)
+
+
+# STEP 15E: TEST REGIONAL HETEROGENEITY
+
+region_sample <- decision_sample[
+  !is.na(decision_sample$region) &
+    complete.cases(
+      decision_sample[, c(
+        "Denied",
+        "tract_minority_pct",
+        "tract_income_pct",
+        "income_num",
+        "loan_amount_num",
+        "dti_num",
+        "ltv_num",
+        "loan_term_num"
+      )]
+    ),
+]
+
+cat("Regional analysis N:", nrow(region_sample), "\n")
+print(table(region_sample$region))
+
+model_region_main <- glm(
+  Denied ~
+    tract_minority_pct +
+    region +
+    tract_income_pct +
+    income_num +
+    ns(loan_amount_num, df = 3) +
+    ns(dti_num, df = 3) +
+    ns(ltv_num, df = 3) +
+    ns(loan_term_num, df = 3),
+  data = region_sample,
+  family = binomial(link = "logit")
+)
+
+model_region_interaction <- glm(
+  Denied ~
+    tract_minority_pct * region +
+    tract_income_pct +
+    income_num +
+    ns(loan_amount_num, df = 3) +
+    ns(dti_num, df = 3) +
+    ns(ltv_num, df = 3) +
+    ns(loan_term_num, df = 3),
+  data = region_sample,
+  family = binomial(link = "logit")
+)
+
+# Joint test: does the tract-minority association differ by region?
+anova(
+  model_region_main,
+  model_region_interaction,
+  test = "Chisq"
+)
+
+# Show focal coefficient and interaction terms
+coef_table <- summary(model_region_interaction)$coefficients
+
+print(
+  coef_table[
+    grep(
+      "tract_minority_pct",
+      rownames(coef_table)
+    ),
+    ,
+    drop = FALSE
+  ]
+)
+
+
+
+
+# STEP 15F: REGIONAL 10-PP ORs AND 95% CIs
+
+b <- coef(model_region_interaction)
+V <- vcov(model_region_interaction)
+
+# Washington area
+beta_wash <- b["tract_minority_pct"]
+se_wash <- sqrt(V["tract_minority_pct", "tract_minority_pct"])
+
+# Baltimore area
+beta_balt <- b["tract_minority_pct"] +
+  b["tract_minority_pct:regionBaltimore area"]
+
+se_balt <- sqrt(
+  V["tract_minority_pct", "tract_minority_pct"] +
+    V["tract_minority_pct:regionBaltimore area",
+      "tract_minority_pct:regionBaltimore area"] +
+    2 * V["tract_minority_pct",
+          "tract_minority_pct:regionBaltimore area"]
+)
+
+# Other Maryland
+beta_other <- b["tract_minority_pct"] +
+  b["tract_minority_pct:regionOther Maryland"]
+
+se_other <- sqrt(
+  V["tract_minority_pct", "tract_minority_pct"] +
+    V["tract_minority_pct:regionOther Maryland",
+      "tract_minority_pct:regionOther Maryland"] +
+    2 * V["tract_minority_pct",
+          "tract_minority_pct:regionOther Maryland"]
+)
+
+regional_results <- data.frame(
+  Region = c(
+    "Washington area",
+    "Baltimore area",
+    "Other Maryland"
+  ),
+  Beta = c(beta_wash, beta_balt, beta_other),
+  SE = c(se_wash, se_balt, se_other)
+)
+
+regional_results$OR_10pp <-
+  exp(10 * regional_results$Beta)
+
+regional_results$CI_low <-
+  exp(10 * (
+    regional_results$Beta -
+      1.96 * regional_results$SE
+  ))
+
+regional_results$CI_high <-
+  exp(10 * (
+    regional_results$Beta +
+      1.96 * regional_results$SE
+  ))
+
+print(regional_results, row.names = FALSE)
+
+
+
+# STEP 16A: FINAL PRIMARY SPLINE MODEL ON ITS EXACT COMPLETE-CASE SAMPLE
+
+primary_spline_sample <- decision_sample[
+  complete.cases(
+    decision_sample[, c(
+      "Denied",
+      "tract_minority_pct",
+      "tract_income_pct",
+      "income_num",
+      "loan_amount_num",
+      "dti_num",
+      "ltv_num",
+      "loan_term_num"
+    )]
+  ),
+]
+
+cat("Primary spline N:", nrow(primary_spline_sample), "\n")
+cat("Denied:", sum(primary_spline_sample$Denied == 1), "\n")
+cat("Non-denied:", sum(primary_spline_sample$Denied == 0), "\n")
+cat(
+  "Denial rate:",
+  mean(primary_spline_sample$Denied == 1) * 100,
+  "%\n"
+)
+
+primary_spline_model <- glm(
+  Denied ~
+    tract_minority_pct +
+    tract_income_pct +
+    income_num +
+    ns(loan_amount_num, df = 3) +
+    ns(dti_num, df = 3) +
+    ns(ltv_num, df = 3) +
+    ns(loan_term_num, df = 3),
+  data = primary_spline_sample,
+  family = binomial(link = "logit")
+)
+
+primary_coef <- summary(primary_spline_model)$coefficients[
+  "tract_minority_pct",
+]
+
+print(primary_coef)
+
+primary_beta <- coef(primary_spline_model)["tract_minority_pct"]
+primary_se <- primary_coef["Std. Error"]
+
+print(c(
+  OR_10pp = exp(10 * primary_beta),
+  CI_low  = exp(10 * (primary_beta - 1.96 * primary_se)),
+  CI_high = exp(10 * (primary_beta + 1.96 * primary_se))
+))
+
+cat("AIC:", AIC(primary_spline_model), "\n")
+
+
+
+figure2 <- ggplot(
+  missing_plot_data,
+  aes(x = Variable, y = Missing_Pct, fill = Status)
+) +
+  geom_col(
+    position = position_dodge(width = 0.75),
+    width = 0.65
+  ) +
+  geom_text(
+    aes(label = sprintf("%.2f%%", Missing_Pct)),
+    position = position_dodge(width = 0.75),
+    hjust = -0.15,
+    size = 3.5
+  ) +
+  coord_flip() +
+  labs(
+    title = "Missing Covariate Data by Mortgage Denial Status",
+    subtitle = "2025 Maryland HMDA lender-decision sample",
+    x = NULL,
+    y = "Applications with missing data (%)",
+    fill = "Application status",
+    caption = "Note: Percentages are calculated within denial-status groups."
+  ) +
+  scale_y_continuous(
+    limits = c(0, 24),
+    breaks = seq(0, 24, 4)
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+print(figure2)
+
+
+
+
+
+# FIGURE 3: Robustness of the tract-minority association
+
+library(ggplot2)
+
+robustness_plot_data <- data.frame(
+  Model = c(
+    "Primary spline",
+    "Multiple imputation",
+    "County fixed effects",
+    "Applicant race/ethnicity adjusted"
+  ),
+  OR = c(
+    1.0951,
+    1.0357,
+    1.0686,
+    1.0403
+  ),
+  Lower = c(
+    1.0830,
+    1.0260,
+    1.0486,
+    1.0275
+  ),
+  Upper = c(
+    1.1073,
+    1.0455,
+    1.0890,
+    1.0533
+  )
+)
+
+robustness_plot_data$Model <- factor(
+  robustness_plot_data$Model,
+  levels = rev(robustness_plot_data$Model)
+)
+
+print(robustness_plot_data)
+
+figure3 <- ggplot(
+  robustness_plot_data,
+  aes(x = OR, y = Model)
+) +
+  geom_vline(
+    xintercept = 1,
+    linetype = "dashed",
+    linewidth = 0.6
+  ) +
+  geom_errorbarh(
+    aes(xmin = Lower, xmax = Upper),
+    height = 0.18,
+    linewidth = 0.7
+  ) +
+  geom_point(size = 3) +
+  labs(
+    title = "Robustness of the Tract-Minority Association",
+    subtitle = "Odds ratios for a 10-percentage-point increase in tract minority population share",
+    x = "Odds ratio (95% CI)",
+    y = NULL,
+    caption = "Note: OR > 1 indicates higher odds of mortgage denial."
+  ) +
+  scale_x_continuous(
+    limits = c(0.99, 1.12),
+    breaks = seq(1.00, 1.12, 0.02)
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+print(figure3)
+
+ggsave(
+  "Figure_3_Robustness_Forest_Plot.tiff",
+  plot = figure3,
+  width = 7.5,
+  height = 5,
+  units = "in",
+  dpi = 600,
+  compression = "lzw"
+)
+
+
+
+# FIGURE 4: Geographic heterogeneity in the tract-minority association
+
+library(ggplot2)
+
+region_plot_data <- data.frame(
+  Region = c(
+    "Washington area",
+    "Baltimore area",
+    "Other Maryland"
+  ),
+  OR = c(
+    1.149799,
+    1.068985,
+    1.080230
+  ),
+  Lower = c(
+    1.128760,
+    1.049254,
+    1.031632
+  ),
+  Upper = c(
+    1.171230,
+    1.089087,
+    1.131118
+  )
+)
+
+region_plot_data$Region <- factor(
+  region_plot_data$Region,
+  levels = rev(region_plot_data$Region)
+)
+
+print(region_plot_data)
+
+figure4 <- ggplot(
+  region_plot_data,
+  aes(x = OR, y = Region)
+) +
+  geom_vline(
+    xintercept = 1,
+    linetype = "dashed",
+    linewidth = 0.6
+  ) +
+  geom_errorbarh(
+    aes(xmin = Lower, xmax = Upper),
+    height = 0.18,
+    linewidth = 0.7
+  ) +
+  geom_point(size = 3) +
+  labs(
+    title = "Geographic Heterogeneity in the Tract-Minority Association",
+    subtitle = paste0(
+      "Odds ratios for a 10-percentage-point increase in tract minority population share\n",
+      "Regional interaction test: chi-square(2) = 32.32, p < .001"
+    ),
+    x = "Odds ratio (95% CI)",
+    y = NULL,
+    caption = paste0(
+      "Note: Regional complete-case sample N = 64,505. ",
+      "OR > 1 indicates higher odds of mortgage denial."
+    )
+  ) +
+  scale_x_continuous(
+    limits = c(0.99, 1.19),
+    breaks = seq(1.00, 1.18, 0.02)
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+print(figure4)
+
+ggsave(
+  "Figure_4_Regional_Heterogeneity.tiff",
+  plot = figure4,
+  width = 7.5,
+  height = 5,
+  units = "in",
+  dpi = 600,
+  compression = "lzw"
+)
+
+
+# FIGURE 5: Mortgage application outcomes
+
+library(ggplot2)
+
+outcome_data <- data.frame(
+  Status = c("Denied", "Non-denied"),
+  Count = c(8257, 65495)
+)
+
+outcome_data$Percent <-
+  outcome_data$Count / sum(outcome_data$Count) * 100
+
+outcome_data$Label <- paste0(
+  outcome_data$Status,
+  "\n",
+  format(outcome_data$Count, big.mark = ","),
+  " (",
+  sprintf("%.2f%%", outcome_data$Percent),
+  ")"
+)
+
+print(outcome_data)
+
+figure5 <- ggplot(
+  outcome_data,
+  aes(x = "", y = Count, fill = Status)
+) +
+  geom_col(width = 1) +
+  coord_polar(theta = "y") +
+  geom_text(
+    aes(label = Label),
+    position = position_stack(vjust = 0.5),
+    size = 4
+  ) +
+  labs(
+    title = "Mortgage Application Outcomes",
+    subtitle = "2025 Maryland HMDA lender-decision sample (N = 73,752)",
+    fill = "Application status",
+    caption = "Note: Denied = 8,257; Non-denied = 65,495."
+  ) +
+  theme_void(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+
+print(figure5)
+
+ggsave(
+  "Figure_5_Mortgage_Application_Outcomes.tiff",
+  plot = figure5,
+  width = 7,
+  height = 5,
+  units = "in",
+  dpi = 600,
+  compression = "lzw"
+)
+
+
+# FIGURE 6: Raw mortgage denial rates by Maryland county
+
+library(ggplot2)
+
+county_plot_data <- data.frame(
+  County = c(
+    "Allegany", "Anne Arundel", "Baltimore County", "Calvert",
+    "Caroline", "Carroll", "Cecil", "Charles", "Dorchester",
+    "Frederick", "Garrett", "Harford", "Howard", "Kent",
+    "Montgomery", "Prince George's", "Queen Anne's",
+    "St. Mary's", "Somerset", "Talbot", "Washington",
+    "Wicomico", "Worcester", "Baltimore City"
+  ),
+  
+  N = c(
+    645, 7846, 9052, 1242,
+    435, 1980, 1274, 3064, 512,
+    3952, 465, 3585, 3650, 251,
+    9659, 10095, 909,
+    1494, 285, 494, 1855,
+    1356, 1694, 7520
+  ),
+  
+  Denied = c(
+    71, 735, 917, 75,
+    65, 111, 145, 374, 86,
+    291, 56, 375, 327, 29,
+    837, 1573, 56,
+    103, 61, 40, 229,
+    208, 198, 1069
+  )
+)
+
+# Calculate denial rate directly from the verified counts
+county_plot_data$Denial_Rate <-
+  100 * county_plot_data$Denied / county_plot_data$N
+
+# Order counties from highest to lowest denial rate
+county_plot_data$County <- reorder(
+  county_plot_data$County,
+  county_plot_data$Denial_Rate
+)
+
+print(
+  county_plot_data[
+    order(county_plot_data$Denial_Rate, decreasing = TRUE),
+  ]
+)
+
+figure6 <- ggplot(
+  county_plot_data,
+  aes(x = County, y = Denial_Rate)
+) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = sprintf("%.1f%%", Denial_Rate)),
+    hjust = -0.15,
+    size = 3
+  ) +
+  coord_flip() +
+  labs(
+    title = "Raw Mortgage Denial Rates Across Maryland Counties",
+    subtitle = "2025 Maryland HMDA lender-decision sample",
+    x = NULL,
+    y = "Denial rate (%)",
+    caption = paste0(
+      "Note: Rates are unadjusted and descriptive. ",
+      "Applications with missing county codes are excluded."
+    )
+  ) +
+  scale_y_continuous(
+    limits = c(0, 24),
+    breaks = seq(0, 24, 4)
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+print(figure6)
+
+ggsave(
+  "Figure_6_Raw_Denial_Rates_by_Maryland_County.tiff",
+  plot = figure6,
+  width = 8,
+  height = 8,
+  units = "in",
+  dpi = 600,
+  compression = "lzw"
+)
