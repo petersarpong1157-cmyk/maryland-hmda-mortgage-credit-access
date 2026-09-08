@@ -33,6 +33,7 @@ The script contains the data preparation and statistical analyses used for the s
 - Multiple imputation sensitivity analysis
 - County fixed-effects sensitivity analysis
 - Applicant race/ethnicity sensitivity analysis
+- Categorical debt-to-income (DTI) sensitivity analysis
 - Geographic heterogeneity analysis within Maryland
 - Code used to produce the study figures
 
@@ -55,7 +56,7 @@ The primary complete-case analytical sample contains 64,533 applications.
 
 The primary specification is a logistic regression using natural cubic splines with 3 degrees of freedom for loan amount, debt-to-income ratio, loan-to-value ratio, and loan term. Census-tract minority population share, census-tract income relative to area median income, and applicant income enter the model linearly.
 
-The study also evaluates the robustness of the tract-minority association using multiple imputation, county fixed effects, adjustment for applicant race/ethnicity, and regional heterogeneity analyses within Maryland.
+The study also evaluates the robustness of the tract-minority association using multiple imputation, county fixed effects, adjustment for applicant race/ethnicity, categorical treatment of debt-to-income ratio, and regional heterogeneity analyses within Maryland.
 
 The raw HMDA data are not included in this repository, so users must obtain the public 2025 Maryland HMDA data separately before running the analysis.
 
