@@ -3470,3 +3470,94 @@ ggsave(
   dpi = 600,
   compression = "lzw"
 )
+# STEP 19: CATEGORICAL DTI SENSITIVITY ANALYSIS
+
+# Rebuild the primary complete-case sample using the same variables
+# as the primary spline model
+dti_cat_sample <- decision_sample |>
+  dplyr::filter(
+    !is.na(Denied),
+    !is.na(tract_minority_pct),
+    !is.na(tract_income_pct),
+    !is.na(income_num),
+    !is.na(loan_amount_num),
+    !is.na(dti_num),
+    !is.na(ltv_num),
+    !is.na(loan_term_num)
+  )
+
+# Categorize DTI
+dti_cat_sample$dti_category <- cut(
+  dti_cat_sample$dti_num,
+  breaks = c(-Inf, 20, 30, 36, 50, 60, Inf),
+  right = FALSE,
+  labels = c(
+    "<20%",
+    "20%-<30%",
+    "30%-<36%",
+    "36%-<50%",
+    "50%-60%",
+    ">60%"
+  )
+)
+
+# Use 30%-<36% as the reference category
+dti_cat_sample$dti_category <- relevel(
+  dti_cat_sample$dti_category,
+  ref = "30%-<36%"
+)
+
+# Verify sample and DTI categories
+cat("Categorical DTI sensitivity sample N =",
+    nrow(dti_cat_sample), "\n")
+cat("Denied =",
+    sum(dti_cat_sample$Denied == 1), "\n")
+cat("Non-denied =",
+    sum(dti_cat_sample$Denied == 0), "\n")
+
+table(dti_cat_sample$dti_category, useNA = "ifany")
+
+# Fit sensitivity model:
+# DTI is categorical; other nonlinear continuous loan controls
+# retain the primary model's natural cubic spline specification
+model_dti_cat <- glm(
+  Denied ~
+    tract_minority_pct +
+    tract_income_pct +
+    income_num +
+    splines::ns(loan_amount_num, df = 3) +
+    dti_category +
+    splines::ns(ltv_num, df = 3) +
+    splines::ns(loan_term_num, df = 3),
+  data = dti_cat_sample,
+  family = binomial(link = "logit")
+)
+
+# Extract the focal tract-minority estimate
+b_dti_cat <- coef(summary(model_dti_cat))[
+  "tract_minority_pct", "Estimate"
+]
+se_dti_cat <- coef(summary(model_dti_cat))[
+  "tract_minority_pct", "Std. Error"
+]
+z_dti_cat <- coef(summary(model_dti_cat))[
+  "tract_minority_pct", "z value"
+]
+p_dti_cat <- coef(summary(model_dti_cat))[
+  "tract_minority_pct", "Pr(>|z|)"
+]
+
+# Convert the coefficient to an odds ratio for a
+# 10-percentage-point increase in tract minority population share
+or10_dti_cat <- exp(10 * b_dti_cat)
+ci_low_dti_cat <- exp(10 * (b_dti_cat - 1.96 * se_dti_cat))
+ci_high_dti_cat <- exp(10 * (b_dti_cat + 1.96 * se_dti_cat))
+
+cat("N =", nobs(model_dti_cat), "\n")
+cat("Tract-minority beta =", b_dti_cat, "\n")
+cat("SE =", se_dti_cat, "\n")
+cat("z =", z_dti_cat, "\n")
+cat("p =", p_dti_cat, "\n")
+cat("10-pp OR =", or10_dti_cat, "\n")
+cat("95% CI =", ci_low_dti_cat, "to", ci_high_dti_cat, "\n")
+cat("AIC =", AIC(model_dti_cat), "\n")
