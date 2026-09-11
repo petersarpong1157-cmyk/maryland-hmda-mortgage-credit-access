@@ -9,7 +9,7 @@ This repository contains the R code used to prepare the analytical samples and r
 **Authors:** Peter Sarpong and Monica Verma
 
 **Affiliations:**  
-Peter Sarpong — Independent Researcher, Washington, DC, USA  
+Peter Sarpong — Independent Researcher, Gaithersburg, Maryland, USA  
 Monica Verma — Associate Professor, Karnavati University, Uvarsad, Gandhinagar, Gujarat 382422, India
 
 ## Data
