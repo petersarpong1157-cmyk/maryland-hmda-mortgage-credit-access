@@ -1,0 +1,6 @@
+Package,Version
+fixest,0.14.2
+dplyr,1.2.1
+readr,2.2.0
+mice,3.19.0
+splines,4.5.2

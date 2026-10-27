@@ -1,0 +1,2 @@
+Model,M,N_Per_Imputation,OR_10pp,CI_Low,CI_High,Between_Imputation_Variance,Within_Imputation_Variance
+MI_flexible_income_lender_FE_pilot,5,57796,1.0803789666973636,1.0603882909436573,1.1007465111137125,2.527259104326189e-7,9.034586911672236e-5

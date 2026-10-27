@@ -1,0 +1,13 @@
+Field,Value
+Source data file,loan_purposes_1_state_MD.csv
+Source MD5 checksum,bfc55246d7307f2f2e44ba4a5e7c12b8
+R version,R version 4.5.2 (2025-10-31 ucrt)
+fixest version,0.14.2
+mice version,3.19.0
+Primary applications,55913
+Primary lenders,267
+Primary census tracts,1432
+Primary denied,4816
+Primary non-denied,51097
+Primary adjusted odds ratio,1.10649373736253
+Primary lender-FE odds ratio,1.08209127272025

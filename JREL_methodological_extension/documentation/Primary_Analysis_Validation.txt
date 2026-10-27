@@ -1,0 +1,5 @@
+Validated primary-analysis R script
+MD5: 4d430da60faa8a0b009062fe54c992e2
+Source CSV MD5: bfc55246d7307f2f2e44ba4a5e7c12b8
+Validation: passed against frozen primary estimates
+Supplementary analyses: not fully independently reproduced

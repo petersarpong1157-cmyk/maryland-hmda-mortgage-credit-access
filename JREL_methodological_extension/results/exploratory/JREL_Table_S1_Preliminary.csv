@@ -1,0 +1,5 @@
+Specification,N,OR_10pp,CI_Low,CI_High,Status
+Exclude high-LTV-missingness lender,55876,1.0813964726382825,1.060855753875034,1.1023349091174126,Clustered regression sensitivity
+IPCW - 95th percentile cap,55913,1.074343380992214,1.0543035275741997,1.0947641453286807,Preliminary weighted inference
+IPCW - uncapped,55913,1.0710429314936538,1.0508974774548934,1.0915745690823173,Preliminary weighted inference
+Five-imputation lender-FE pilot,57796,1.0803789666973636,1.0603882909436573,1.1007465111137125,Preliminary imputation inference
