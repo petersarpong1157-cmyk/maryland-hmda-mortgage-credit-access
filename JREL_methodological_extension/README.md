@@ -57,4 +57,4 @@ Figures 1–3 were rendered from the tabulated model/descriptive outputs. Figure
 
 ## Forthcoming Zenodo release
 
-The revised manuscript and methodological extension use the title *Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data*. The new release has **not yet been published**; no DOI is assigned here. The historical Zenodo DOI `10.5281/zenodo.22654848` identifies an earlier project archive and must not be reused as the DOI for this new release.
+The revised manuscript and methodological extension use the title *Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data*. Release **v3.9.9** was published and archived with the version-specific DOI **[10.5281/zenodo.23695775](https://doi.org/10.5281/zenodo.23695775)**. The historical Zenodo DOI `10.5281/zenodo.22654848` identifies an earlier project archive and must not be reused as the DOI for this new release.
