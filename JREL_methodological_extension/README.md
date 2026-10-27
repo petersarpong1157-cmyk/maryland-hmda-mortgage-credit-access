@@ -1,4 +1,8 @@
-# Maryland 2025 HMDA Mortgage Denial Analysis — Methodological Extension
+# Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data
+
+## Methodological extension for the revised manuscript
+
+**Current manuscript title:** *Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data*.
 
 This folder contains supplementary methods, reproducible primary analyses, descriptive and sensitivity results, and four figures for a research manuscript in preparation. It extends, and does not replace, the earlier project in the repository root.
 
@@ -50,3 +54,7 @@ The estimates do not establish borrower-level discrimination or a causal neighbo
 ## Figure provenance
 
 Figures 1–3 were rendered from the tabulated model/descriptive outputs. Figure 4 was generated locally in R with `sf`, `ggplot2`, Census 2025 TIGER/Line boundaries, and the HMDA tract-level composition variable. Source categories and map controls are documented in the map script. No synthetic mortgage observations were used.
+
+## Forthcoming Zenodo release
+
+The revised manuscript and methodological extension use the title *Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data*. The new release has **not yet been published**; no DOI is assigned here. The historical Zenodo DOI `10.5281/zenodo.22654848` identifies an earlier project archive and must not be reused as the DOI for this new release.
