@@ -31,6 +31,10 @@ Figure 4 maps 1,433 tracts represented in 60,663 restricted applications with va
 
 The input CSV is not provided in this repository. Its documented MD5 checksum is `bfc55246d7307f2f2e44ba4a5e7c12b8`. Run code locally in a directory containing the matching Maryland HMDA source CSV. The original-data-to-results primary model and descriptive summaries passed the recorded clean-session reproduction; supplementary sensitivity and missing-data pipelines have **not** all been independently rerun from the source.
 
+## Spatial autocorrelation supplement
+
+The [standalone spatial analysis script](code/JREL_Spatial_Morans_I.R) was run in a separate R session and reproduced both global Moran's I calculations using 1,433 mapped Maryland census tracts, first-order row-standardized contiguity weights, and 999 permutations. [Spatial robustness results](results/spatial/JREL_Moran_Robustness.csv): queen I = 0.831385 (mean neighbors 6.006, no isolates), rook I = 0.838785 (mean neighbors 5.234, no isolates); both Monte Carlo permutation p = 0.001. The statistic describes spatial autocorrelation in **tract minority population share**, not the regression's residuals, and does not establish segregation mechanisms or a causal lending effect.
+
 ## Other contents
 
 - `results/main/` — primary regression, descriptive table, sample flow and coverage.
