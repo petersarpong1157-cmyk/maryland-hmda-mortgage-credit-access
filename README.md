@@ -1,8 +1,8 @@
-# Neighborhood Minority Composition and Mortgage Denial: Evidence from Maryland's 2025 HMDA Data
+# Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data
 
 ## Overview
 
-This repository contains the R code and research documentation for **Neighborhood Minority Composition and Mortgage Denial: Evidence from Maryland's 2025 HMDA Data**, including the original exploratory analysis and a substantially documented **methodological extension prepared for journal submission**.
+This repository contains the R code and research documentation for **Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data**, including the original exploratory analysis and a substantially documented **methodological extension prepared for journal submission**.
 
 **Authors:** Peter Sarpong and Monica Verma
 
@@ -90,13 +90,15 @@ The public 2025 HMDA source file must be obtained separately. Consult the method
 
 ## Zenodo archive and versions
 
+**Release title for the forthcoming journal-oriented Zenodo deposit:** *Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data*. No new DOI has been issued yet.
+
 An **earlier project archive** is available at **[DOI: 10.5281/zenodo.22654848](https://doi.org/10.5281/zenodo.22654848)**. This identifier is **not** being presented as the DOI for the revised JREL methodological extension.
 
 **The updated journal-oriented archive has not yet been published on Zenodo.** Once a verified new deposit/release is published, add its actual record DOI and version citation here. Do not infer a new DOI from the earlier archive.
 
 ## Citation
 
-Sarpong, P., & Verma, M. *Neighborhood Minority Composition and Mortgage Denial: Evidence from Maryland's 2025 HMDA Data.* Manuscript in preparation.
+Sarpong, P., & Verma, M. *Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data.* Manuscript in preparation.
 
 When citing archived code, use the exact Zenodo record and version actually consulted.
 
