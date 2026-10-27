@@ -90,11 +90,11 @@ The public 2025 HMDA source file must be obtained separately. Consult the method
 
 ## Zenodo archive and versions
 
-**Release title for the forthcoming journal-oriented Zenodo deposit:** *Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data*. No new DOI has been issued yet.
+**Release title for the journal-oriented Zenodo deposit:** *Mortgage Denial and Neighborhood Composition: A Reproducible Analysis of Maryland's 2025 HMDA Data*. No new DOI has been issued yet.
 
 An **earlier project archive** is available at **[DOI: 10.5281/zenodo.22654848](https://doi.org/10.5281/zenodo.22654848)**. This identifier is **not** being presented as the DOI for the revised JREL methodological extension.
 
-**The updated journal-oriented archive has not yet been published on Zenodo.** Once a verified new deposit/release is published, add its actual record DOI and version citation here. Do not infer a new DOI from the earlier archive.
+**Current methodological-extension release:** **v3.9.9**, archived on Zenodo with version-specific DOI **[10.5281/zenodo.23695775](https://doi.org/10.5281/zenodo.23695775)**. This DOI identifies the released repository snapshot; subsequent changes to the `main` branch are not part of that archived release.
 
 ## Citation
 
