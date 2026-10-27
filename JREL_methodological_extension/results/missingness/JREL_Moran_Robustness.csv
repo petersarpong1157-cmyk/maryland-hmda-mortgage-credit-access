@@ -1,0 +1,3 @@
+Weights,Tracts,Isolated,Mean_Neighbors,Moran_I,Permutation_P
+Queen contiguity,1433,0,6.005582693649686,0.8313847943509468,0.001
+Rook contiguity,1433,0,5.2337752965806,0.8387847610843244,0.001
